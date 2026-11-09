@@ -1,0 +1,7 @@
+reports/
+outputs/
+submissions/*.csv
+*.csv
+!notebooks/dataset_train.csv
+!notebooks/dataset_test_X.csv
+!submissions/.gitkeep
