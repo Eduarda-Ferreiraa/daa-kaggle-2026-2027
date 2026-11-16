@@ -5,3 +5,9 @@ submissions/*.csv
 !notebooks/dataset_train.csv
 !notebooks/dataset_test_X.csv
 !submissions/.gitkeep
+
+__pycache__/
+*.py[cod]
+submissions/*.csv
+reports/
+outputs/

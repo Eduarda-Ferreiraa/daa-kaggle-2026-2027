@@ -21,5 +21,13 @@ O pipeline reutilizável vive em `src/preparar_dados.py` e expõe:
 - `apply_in16_rule(df)`
 - `DataPreprocessor`
 - `preparar_dados(train_df, test_df, target_col="AGE_RANGE")`
+- `add_domain_aggregates(frame, mappings=None)` para agregados opcionais configurados explicitamente.
+
+Os agregados por domínio estão desativados por defeito. Um mapeamento deve indicar as colunas e
+as respostas positivas/negativas confirmadas; só essas respostas entram no denominador válido.
+Respostas especiais e ausências de origem são excluídas, o número de respostas válidas é registado
+e a contagem/proporção positiva fica ausente se não houver respostas válidas. As colunas originais
+são preservadas. Não existem mapeamentos de domínios confirmados para o conjunto atual, portanto
+nenhum agregado clínico/de mobilidade/autonomia é aplicado automaticamente.
 
 A função `preparar_dados` é a entrada principal para a preparação e respeita a interface `fit/transform` do scikit-learn.

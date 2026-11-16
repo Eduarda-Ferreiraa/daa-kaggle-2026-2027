@@ -3,7 +3,7 @@ from __future__ import annotations
 import unicodedata
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Sequence
+from typing import Any, Dict, List, Mapping, Optional, Sequence
 
 import numpy as np
 import pandas as pd
@@ -95,6 +95,59 @@ def _coerce_numeric(series: pd.Series) -> pd.Series:
     cleaned = series.map(lambda value: value.strip() if isinstance(value, str) else value)
     cleaned = cleaned.map(lambda value: np.nan if _classify_special_status(value) != "valor_numeric" else value)
     return pd.to_numeric(cleaned, errors="coerce")
+
+
+def add_domain_aggregates(
+    frame: pd.DataFrame,
+    mappings: Optional[Mapping[str, Mapping[str, Any]]] = None,
+) -> pd.DataFrame:
+    """Add explicitly configured positive/valid counts and proportions.
+
+    Only exact response values listed in each mapping are counted. All other responses,
+    including explicit special values and source missingness, are excluded from the valid
+    denominator. A positive count and proportion remain missing when no answer is valid.
+    """
+    result = frame.copy()
+    if not mappings:
+        return result
+
+    for aggregate_name, specification in mappings.items():
+        columns = list(specification["columns"])
+        positive_values = {
+            _normalise_text(value) for value in specification["positive_values"]
+        }
+        negative_values = {
+            _normalise_text(value) for value in specification["negative_values"]
+        }
+        if not columns:
+            raise ValueError(f"O agregado '{aggregate_name}' não tem colunas.")
+        if positive_values.intersection(negative_values):
+            raise ValueError(
+                f"O agregado '{aggregate_name}' tem respostas simultaneamente "
+                "positivas e negativas."
+            )
+        missing_columns = [column for column in columns if column not in result.columns]
+        if missing_columns:
+            raise ValueError(
+                f"Colunas ausentes no agregado '{aggregate_name}': {missing_columns}"
+            )
+
+        positive_count = pd.Series(0, index=result.index, dtype="float64")
+        valid_count = pd.Series(0, index=result.index, dtype="int64")
+        for column in columns:
+            normalized = result[column].map(_normalise_text)
+            positive = normalized.isin(positive_values)
+            negative = normalized.isin(negative_values)
+            positive_count += positive.astype("float64")
+            valid_count += (positive | negative).astype("int64")
+
+        valid_mask = valid_count.gt(0)
+        result[f"{aggregate_name}_positive_count"] = positive_count.where(valid_mask)
+        result[f"{aggregate_name}_valid_count"] = valid_count
+        result[f"{aggregate_name}_positive_proportion"] = (
+            positive_count.div(valid_count.where(valid_mask))
+        )
+    return result
 
 
 def inspect_schema(df: pd.DataFrame, target_col: str = "AGE_RANGE") -> Dict[str, Any]:
@@ -246,7 +299,12 @@ def identify_excluded_columns(df: pd.DataFrame, target_col: str = "AGE_RANGE") -
     return sorted(excluded & set(df.columns))
 
 
-def _prepare_fixed_frame(frame: pd.DataFrame, target_col: str = "AGE_RANGE", excluded_columns: Optional[Sequence[str]] = None) -> Dict[str, Any]:
+def _prepare_fixed_frame(
+    frame: pd.DataFrame,
+    target_col: str = "AGE_RANGE",
+    excluded_columns: Optional[Sequence[str]] = None,
+    domain_aggregates: Optional[Mapping[str, Mapping[str, Any]]] = None,
+) -> Dict[str, Any]:
     work = frame.copy()
     if target_col in work.columns:
         y = work[target_col].copy()
@@ -283,6 +341,9 @@ def _prepare_fixed_frame(frame: pd.DataFrame, target_col: str = "AGE_RANGE", exc
         weight_valid = weight_kg[valid_mask]
         work.loc[valid_mask, "BMI"] = weight_valid / (height_m_valid ** 2)
         work["BMI_valid"] = valid_mask
+
+    if domain_aggregates is not None:
+        work = add_domain_aggregates(work, domain_aggregates)
 
     if "PID" in frame.columns:
         ids = frame[["PID", "HHID"]].copy() if "HHID" in frame.columns else frame[["PID"]].copy()
@@ -453,12 +514,22 @@ def build_preparation_report(train_df: pd.DataFrame, test_df: pd.DataFrame, targ
     return report
 
 
-def preparar_dados_fixos(train_df: pd.DataFrame, target_col: str = "AGE_RANGE", excluded_columns: Optional[Sequence[str]] = None) -> Dict[str, Any]:
+def preparar_dados_fixos(
+    train_df: pd.DataFrame,
+    target_col: str = "AGE_RANGE",
+    excluded_columns: Optional[Sequence[str]] = None,
+    domain_aggregates: Optional[Mapping[str, Mapping[str, Any]]] = None,
+) -> Dict[str, Any]:
     train = train_df.copy()
     if target_col not in train.columns:
         raise ValueError(f"The target column '{target_col}' is required in the training set.")
 
-    prepared = _prepare_fixed_frame(train, target_col=target_col, excluded_columns=excluded_columns)
+    prepared = _prepare_fixed_frame(
+        train,
+        target_col=target_col,
+        excluded_columns=excluded_columns,
+        domain_aggregates=domain_aggregates,
+    )
     X = prepared["X"].copy()
     y = prepared["y"].copy()
     return {
@@ -476,6 +547,7 @@ def preparar_dados(
     test_df: pd.DataFrame,
     target_col: str = "AGE_RANGE",
     excluded_columns: Optional[Sequence[str]] = None,
+    domain_aggregates: Optional[Mapping[str, Mapping[str, Any]]] = None,
 ) -> Dict[str, Any]:
     """Return the fixed preparation for train/test without fitting learned parameters.
 
@@ -488,8 +560,18 @@ def preparar_dados(
     if target_col not in train.columns:
         raise ValueError(f"The target column '{target_col}' is required in the training set.")
 
-    train_fixed = _prepare_fixed_frame(train, target_col=target_col, excluded_columns=excluded_columns)
-    test_fixed = _prepare_fixed_frame(test, target_col=target_col, excluded_columns=excluded_columns)
+    train_fixed = _prepare_fixed_frame(
+        train,
+        target_col=target_col,
+        excluded_columns=excluded_columns,
+        domain_aggregates=domain_aggregates,
+    )
+    test_fixed = _prepare_fixed_frame(
+        test,
+        target_col=target_col,
+        excluded_columns=excluded_columns,
+        domain_aggregates=domain_aggregates,
+    )
 
     X_train = train_fixed["X"]
     X_test = test_fixed["X"]

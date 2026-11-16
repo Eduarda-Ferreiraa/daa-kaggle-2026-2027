@@ -1,5 +1,6 @@
 from src.preparar_dados import (
     DataPreprocessor,
+    add_domain_aggregates,
     apply_in16_rule,
     build_preparation_report,
     build_preprocessor,
@@ -14,6 +15,7 @@ from src.preparar_dados import (
 
 __all__ = [
     "DataPreprocessor",
+    "add_domain_aggregates",
     "apply_in16_rule",
     "build_preparation_report",
     "build_preprocessor",
