@@ -1,0 +1,4 @@
+dados/
+resultados/
+submissions/
+*.parquet
