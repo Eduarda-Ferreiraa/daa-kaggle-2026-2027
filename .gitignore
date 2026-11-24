@@ -11,3 +11,6 @@ __pycache__/
 submissions/*.csv
 reports/
 outputs/
+/dados/
+/resultados/
+*.parquet

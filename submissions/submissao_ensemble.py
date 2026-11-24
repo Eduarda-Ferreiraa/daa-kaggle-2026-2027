@@ -86,7 +86,7 @@ print(f"HGB sozinho {np.mean(f1_hgb):.4f} ± {np.std(f1_hgb):.4f} | "
       f"stacking {np.mean(f1_stack):.4f} ± {np.std(f1_stack):.4f} | "
       f"stacking melhor em {(np.array(f1_stack) > np.array(f1_hgb)).sum()}/5 folds")
 
-sub = pd.read_csv(DADOS / "example_submission_10.csv")
+sub = pd.read_csv(BASE / "example_submission_10.csv")
 sub["AGE_RANGE"] = criar_stacking().fit(Z, y).predict(entradas(test_hgb, test_rf, test_reg)).astype(int)
 assert len(sub) == len(X_test) and sub["RowId"].tolist() == list(range(len(X_test)))
 sub.to_csv(SAIDA / "ensemble_submission.csv", index=False)

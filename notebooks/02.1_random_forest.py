@@ -66,7 +66,7 @@ test = pd.read_parquet(f"{DATA_DIR}/test_tratado.parquet")
 X = para_random_forest(train.drop(columns=TARGET))
 y = train[TARGET].values
 X_test = para_random_forest(test)[X.columns]
-sub = pd.read_csv(f"{DATA_DIR}/example_submission_10.csv")
+sub = pd.read_csv("../example_submission_10.csv")
 n_classes = len(np.unique(y))
 print(f"Treino: {X.shape} | Teste: {X_test.shape}")
 
@@ -179,7 +179,7 @@ print(f"Erros entre os blocos 0–8 e 9–15 (65+): {((pred_adj >= 9) != blk).su
 
 # Probabilidades OOF + diferença real/prevista (base para o ensemble e para a análise de anomalias)
 oof_df = pd.DataFrame(oof_proba, columns=[f"p_{c}" for c in range(n_classes)])
-oof_df.insert(0, "PID", pd.read_csv(f"{DATA_DIR}/dataset_train.csv", usecols=["PID"]).PID.values)
+oof_df.insert(0, "PID", pd.read_csv("dataset_train.csv", usecols=["PID"]).PID.values)
 oof_df["real"] = y
 oof_df["prevista"] = pred_adj
 oof_df["idade_esperada"] = (oof_proba * np.arange(n_classes)).sum(1)

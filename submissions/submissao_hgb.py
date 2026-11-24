@@ -28,7 +28,7 @@ modelo = HistGradientBoostingClassifier(
 ).fit(X, y)
 
 sub = pd.DataFrame({"RowId": range(len(test)), "AGE_RANGE": modelo.predict(test).astype(int)})
-exemplo = pd.read_csv(DADOS / "example_submission_10.csv")
+exemplo = pd.read_csv(BASE / "example_submission_10.csv")
 assert list(sub.columns) == list(exemplo.columns) and len(sub) == len(exemplo)
 sub.to_csv(SAIDA / "hgb_submission.csv", index=False)
 print(sub["AGE_RANGE"].value_counts().sort_index().to_dict())
